@@ -1,0 +1,5 @@
+./datasets
+./Lib
+./Scripts
+./outputs
+*.cfg
