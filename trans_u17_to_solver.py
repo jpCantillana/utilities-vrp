@@ -3,6 +3,7 @@
 # Imports
 from lxml import etree, objectify
 from random import randint
+from math import sqrt, ceil
 
 # Format relevant data in a class
 class Customer():
@@ -58,14 +59,22 @@ intermediate_data.set_capacity(capacity)
 nodes = [i for i in root.network.nodes.iterchildren()]
 customers = [i for i in root.requests.iterchildren()]
 n_customers = len(nodes)
+customer_data = {}
 for i in range(n_customers):
     c_id = i
     c_xcoord = nodes[i].cx
     c_ycoord = nodes[i].cy
     c_demand = (customers[i-1].quantity if i > 0 else 0)
     c_sTime = time_windows[randint(0,len(time_windows)-1)]
-    c_eArr = (0 if i == 0 else randint(0,859-c_sTime))
-    c_lDep = (960 if i == 0 else randint(c_eArr+c_sTime, 860))
+    c_eArr = -1
+    c_lDep = -1
+    customer_data[c_id] = (c_xcoord, c_ycoord, c_demand, c_eArr, c_lDep, c_sTime)
+distance_list = [ sqrt((customer_data[0][0] - customer_data[i][0])**2 + (customer_data[0][1] - customer_data[i][1])**2) for i in range(1,n_customers) ]
+avg_dist = sum(distance_list)/len(distance_list)
+for c_id, v in customer_data.items():
+    c_xcoord, c_ycoord, c_demand, c_eArr, c_lDep, c_sTime = v
+    c_eArr = (0 if c_id == 0 else randint(0,ceil((n_customers - 1) * avg_dist) - c_sTime))
+    c_lDep = (ceil(n_customers * avg_dist) if c_id == 0 else randint(c_eArr+c_sTime, ceil((n_customers - 1) * avg_dist)))
     intermediate_data.add_customer(c_id, c_xcoord, c_ycoord, c_demand, c_eArr, c_lDep, c_sTime)
 # Format file
     # spacing: 2
