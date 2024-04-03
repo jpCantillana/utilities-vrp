@@ -2,4 +2,7 @@
 /Lib
 /Scripts
 /outputs
+/bin
+/include
+/lib
 *.cfg
