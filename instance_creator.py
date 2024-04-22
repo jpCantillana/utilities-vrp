@@ -1,5 +1,8 @@
 import numpy as np
 from random import randint
+from math import sqrt
+from sys import float_info
+import pickle
 
 # Format relevant data in a class
 class Customer():
@@ -39,13 +42,31 @@ class InstanceCreator():
     def reset_scenarios(self):
         self.scenarios = {}
     
-    def add_scenario(self, name, realisations, cust_dist, depot_location, n_clusters):
-        self.scenarios[name] = (realisations, cust_dist, depot_location, n_clusters)
-        self.realisations[name] = []
+    def add_scenario(self, name, realisations, cust_dist, depot_location, n_clusters, demand_dist, cap, fleet, tw, tw_dist, alpha=0, beta=0):
+        self.scenarios[name] = (realisations, cust_dist, depot_location, n_clusters, demand_dist, cap, fleet, tw, tw_dist, alpha, beta)
+        self.realisations[name] = {"locations": [], "depots": [], "demands": [], "capacities": [], "service_times": [], "time_windows": [], "fleets": []}
     
     def add_realisations(self, name, customer_locations):
-        self.realisations[name].append({"locations": customer_locations})
+        self.realisations[name]["locations"].append(customer_locations)
     
+    def add_depot(self, name, depot_location):
+        self.realisations[name]["depots"].append(depot_location)
+    
+    def add_demand(self, name, demands):
+        self.realisations[name]["demands"].append(demands)
+    
+    def add_capacity(self, name, cap):
+        self.realisations[name]["capacities"].append(cap)
+
+    def add_service_time(self, name, service_times):
+        self.realisations[name]["service_times"].append(service_times)
+
+    def add_time_window(self, name, time_windows):
+        self.realisations[name]["time_windows"].append(time_windows)
+
+    def add_fleet(self, name, fleet):
+        self.realisations[name]["fleets"].append(fleet)
+
     def set_balancing(self, alpha, beta):
         self.alpha = alpha
         self.beta = beta
@@ -113,8 +134,17 @@ class InstanceCreator():
         return customer_locations
 
     def location_algo(self):
+        n_sc = len(self.scenarios)
+        cnt = 0
         for scenario, params in self.scenarios.items():
-            n_realisations, customer_dist, depot_location, n_clusters = params
+            print("Creating scenario "+str(cnt)+" of "+str(n_sc))
+            n_realisations, customer_dist, depot_location, n_clusters, _, _, _, _, _, a, b = params
+            if depot_location == "central":
+                self.add_depot(scenario, (int((self.ub-self.lb)/2//1), int((self.ub-self.lb)/2//1)))
+            elif depot_location == "annular":
+                self.add_depot(scenario, (int((self.ub-self.lb)/4//1), int((self.ub-self.lb)/4//1)))
+            else:
+                self.add_depot(scenario, (int((self.ub-self.lb)/10//1), int((self.ub-self.lb)/10//1)))
             if n_clusters > 0:
                 self.n_clusters = n_clusters + 1
             if customer_dist == "double_uniform":
@@ -130,6 +160,8 @@ class InstanceCreator():
                     latlon = self.double_normal_generation()
                     self.add_realisations(scenario, latlon)
             elif customer_dist == "linear_combination":
+                self.alpha = a
+                self.beta = b
                 for i in range(n_realisations):
                     customer_locations = []
                     latlon1 = self.double_uniform_generation()
@@ -141,19 +173,207 @@ class InstanceCreator():
                         customer_locations.append((int(lat//1), int(lon//1)))
                     self.add_realisations(scenario, customer_locations)
             self.n_clusters = 1
+            cnt += 1
+    
+    def euclidean_dist(self, lat1, lon1, lat2, lon2):
+        return sqrt((lat1-lat2)**2 + (lon1 - lon2)**2)
+    
+    def get_max_min_distance(self, name):
+        depot_lat, depot_lon = self.realisations[name]["depots"][0]
+        max_dist = -1
+        min_dist = float_info.max
+        for latlon in self.realisations[name]["locations"][0]:
+            lat, lon = latlon
+            distance = self.euclidean_dist(depot_lat, depot_lon, lat, lon)
+            if distance > max_dist:
+                max_dist = distance
+            if distance < min_dist:
+                min_dist = distance
+        return max_dist, min_dist
+    
+    def add_demands(self):
+        for scenario, params in self.scenarios.items():
+            n_realisations, _, _, _, demand_dist, _, _, _, _, _, _ = params
+            for j in range(n_realisations):
+                if demand_dist == "constant":
+                    demands_list = []
+                    service_times = []
+                    for i in range(self.scenario_size):
+                        demands_list.append(5)
+                        service_times.append(5)
+                    self.add_demand(scenario, demands_list)
+                    self.add_service_time(scenario, service_times)
+                elif demand_dist == "uniform":
+                    demands_list = []
+                    service_times = []
+                    for i in range(self.scenario_size):
+                        demands_list.append(randint(1,10))
+                        if demands_list[-1] > 9:
+                            service_times.append(10)
+                        else:
+                            service_times.append(5)
+                    self.add_demand(scenario, demands_list)
+                    self.add_service_time(scenario, service_times)
+                elif demand_dist == "normal":
+                    demands_list = []
+                    service_times = []
+                    for i in range(self.scenario_size):
+                        demands_list.append(max(int(np.random.normal(5, 2, size=1).tolist()[0]//1),0))
+                        if demands_list[-1] > 9:
+                            service_times.append(10)
+                        else:
+                            service_times.append(5)
+                    self.add_demand(scenario, demands_list)
+                    self.add_service_time(scenario, service_times)
+                elif demand_dist == "poisson":
+                    demands_list = []
+                    service_times = []
+                    for i in range(self.scenario_size):
+                        demands_list.append(int(np.random.poisson(5, size=1).tolist()[0]//1))
+                        if demands_list[-1] > 9:
+                            service_times.append(10)
+                        else:
+                            service_times.append(5)
+                    self.add_demand(scenario, demands_list)
+                    self.add_service_time(scenario, service_times)
+    
+    def add_capacities(self):
+        for scenario, params in self.scenarios.items():
+            n_realisations, _, _, _, _, cap, _, _, _, _, _ = params
+            for j in range(n_realisations):
+                if cap == "tight":
+                    max_demand = max(self.realisations[scenario]["demands"][j])
+                    self.add_capacity(scenario, max_demand)
+                else:
+                    max_demand = max(self.realisations[scenario]["demands"][j])
+                    self.add_capacity(scenario, 3*max_demand)
+    
+    def add_time_windows(self):
+        for scenario, params in self.scenarios.items():
+            n_realisations, _, _, _, _, _, _, tw, tw_dist, _, _ = params
+            for j in range(n_realisations):
+                max_dist, min_dist = self.get_max_min_distance(scenario)
+                if tw == "tight":
+                    if tw_dist == "uniform":
+                        time_windows = []
+                        pseudo_median_dist = (max_dist + min_dist)/2
+                        latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 2)
+                        for i in range(self.scenario_size):
+                            earliest_arrival = randint(0, latest_latest_arrival)
+                            latest_departure = earliest_arrival + 50 + 10
+                            time_windows.append((earliest_arrival, latest_departure))
+                        self.add_time_window(scenario, time_windows)
+                    else:
+                        time_windows = []
+                        r = randint(0, 10)
+                        if r > 4:
+                            pseudo_median_dist = (max_dist + min_dist)/2
+                            latest_latest_arrival = pseudo_median_dist * self.scenario_size // 2
+                            for i in range(self.scenario_size):
+                                earliest_arrival = randint(0, latest_latest_arrival)
+                                latest_departure = earliest_arrival + 50 + 10
+                                time_windows.append((earliest_arrival, latest_departure))
+                            self.add_time_window(scenario, time_windows)
+                        else:
+                            for i in range(self.scenario_size):
+                                earliest_arrival = randint(0, 100)
+                                latest_departure = earliest_arrival + 50 + 10
+                                time_windows.append(earliest_arrival, latest_departure)
+                            self.add_time_window(scenario, time_windows)
+                else:
+                    if tw_dist == "uniform":
+                        time_windows = []
+                        pseudo_median_dist = (max_dist + min_dist)/2
+                        latest_latest_arrival = pseudo_median_dist * self.scenario_size // 2
+                        for i in range(self.scenario_size):
+                            earliest_arrival = randint(0, latest_latest_arrival)
+                            latest_departure = earliest_arrival + randint(100, 400) + 10
+                            time_windows.append((earliest_arrival, latest_departure))
+                        self.add_time_window(scenario, time_windows)
+                    else:
+                        time_windows = []
+                        r = randint(0, 10)
+                        if r > 4:
+                            pseudo_median_dist = (max_dist + min_dist)/2
+                            latest_latest_arrival = pseudo_median_dist * self.scenario_size // 2
+                            for i in range(self.scenario_size):
+                                earliest_arrival = randint(0, latest_latest_arrival)
+                                latest_departure = earliest_arrival + randint(100, 400) + 10
+                                time_windows.append((earliest_arrival, latest_departure))
+                            self.add_time_window(scenario, time_windows)
+                        else:
+                            for i in range(self.scenario_size):
+                                earliest_arrival = randint(0, 100)
+                                latest_departure = earliest_arrival + randint(100, 400) + 10
+                                time_windows.append(earliest_arrival, latest_departure)
+                            self.add_time_window(scenario, time_windows)
+
+    def add_fleets(self):
+        for scenario, params in self.scenarios.items():
+            n_realisations, _, _, _, _, _, fleet, _, _, _, _ = params
+            for j in range(n_realisations):
+                max_dist, min_dist = self.get_max_min_distance(scenario)
+                pseudo_median_dist = (max_dist+min_dist)/2
+                cap = self.realisations[scenario]["capacities"][j]
+                total_demand = sum(self.realisations[scenario]["demands"][j])
+                max_departure = max(self.realisations[scenario]["time_windows"][j], key=lambda item: item[1])[0]
+                r_loadxtime = total_demand/max_departure
+                median_trip = pseudo_median_dist * 2 * r_loadxtime
+                if fleet == "tight":
+                    fleet_size = int(median_trip//cap + 1)
+                    self.add_fleet(scenario, fleet_size)
+                else:
+                    fleet_size = int(median_trip//cap + 10)
+                    self.add_fleet(scenario, fleet_size)
+
+    def scenario_generator(self, sample_size = 20):
+        location_distributions = ["double_uniform", "bivariate_normal", "double_normal", "linear_combination"] #
+        lc_alpha_beta = [(0.5,0.5), (0,0.5), (0.5,0), (0.33, 0.33)] #
+        depot_locations = ["central", "annular", "satelite"] #
+        clusters = [0, 1, 2, 3] #
+        uniform_params = [(0,100), (40, 60), (30, 40), (70, 80)]
+        self.set_uniform_parameters(uniform_params[0][0], uniform_params[0][1])
+        self.set_auxiliar_uniform_clusters(uniform_params[1:])
+        normal_params = [
+            (50, 50, 15, 5, 5, 10),
+            (20, 60, 10, 15, 1, 10),
+            (70, 10, 5, 15, 1, 15),
+            (90, 50, 5, 5, 1, 5)
+        ]
+        self.set_normal_parameters(normal_params[0][0], normal_params[0][1], normal_params[0][2], normal_params[0][3], normal_params[0][4], normal_params[0][5])
+        self.set_auxiliar_normal_clusters(normal_params[1:])
+        demand_dist = ["constant", "uniform", "normal", "poisson"] #
+        capacity_dist = ["tight", "loose"] #
+        fleet_type = ["tight", "loose"] #
+        tw_type = ["tight", "loose"] #
+        tw_dist = ["uniform", "early"] #
+        for twd in tw_dist:
+            for twt in tw_type:
+                for ft in fleet_type:
+                    for cp in capacity_dist:
+                        for dd in demand_dist:
+                            for dp in depot_locations:
+                                for cl in clusters:
+                                    for lc in location_distributions:
+                                        if lc == "linear_combination":
+                                            for ab in lc_alpha_beta:
+                                                name = "loc_" + lc + "-" + "AB_" + str(ab) + "-" + "cluster_" + str(cl) + "-depot_" + dp + "-demandDist_" + dd + "-capDist_" + cp + "-fleet_" + ft + "-twType_" + twt + "-twDist" + twd
+                                                self.add_scenario(name, sample_size, lc, dp, cl, dd, cp, ft, twt, twd, ab[0], ab[1])
+
+                                        else:
+                                            name = "loc_" + lc + "-" + "cluster_" + str(cl) + "-depot_" + dp + "-demandDist_" + dd + "-capDist_" + cp + "-fleet_" + ft + "-twType_" + twt + "-twDist" + twd
+                                            self.add_scenario(name, sample_size, lc, dp, cl, dd, cp, ft, twt, twd)
 
 instance_object = InstanceCreator()
-instance_object.add_scenario("double_uniform_test", 1, "double_uniform", 0, 1)
-instance_object.add_scenario("bivariate_normal_test", 1, "bivariate_normal", 0, 1)
-instance_object.add_scenario("double_normal_test", 1, "double_normal", 0, 0)
-instance_object.add_scenario("linear_combination_test", 1, "linear_combination", 0, 0)
-instance_object.set_balancing(0.4,0.5)
-instance_object.set_uniform_parameters(0, 200)
-instance_object.set_normal_parameters(100, 80, 10,10,2,4)
-instance_object.set_auxiliar_uniform_clusters([(200, 250)])
-instance_object.set_auxiliar_normal_clusters([(300,500,10,20,20,10)])
+instance_object.scenario_generator()
 instance_object.location_algo()
+instance_object.add_demands()
+instance_object.add_capacities()
+instance_object.add_time_windows()
+instance_object.add_fleets()
 
+with open('saved_instances.pkl', 'wb') as f:
+    pickle.dump(instance_object.realisations, f)
 
 # space_scenarios = 10
 
