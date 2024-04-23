@@ -192,7 +192,10 @@ class InstanceCreator():
         return max_dist, min_dist
     
     def add_demands(self):
+        n_sc = len(self.scenarios)
+        cnt = 0
         for scenario, params in self.scenarios.items():
+            print("Adding demands "+str(cnt)+" of "+str(n_sc))
             n_realisations, _, _, _, demand_dist, _, _, _, _, _, _ = params
             for j in range(n_realisations):
                 if demand_dist == "constant":
@@ -236,9 +239,13 @@ class InstanceCreator():
                             service_times.append(5)
                     self.add_demand(scenario, demands_list)
                     self.add_service_time(scenario, service_times)
+            cnt += 1
     
     def add_capacities(self):
+        n_sc = len(self.scenarios)
+        cnt = 0
         for scenario, params in self.scenarios.items():
+            print("Adding capacities "+str(cnt)+" of "+str(n_sc))
             n_realisations, _, _, _, _, cap, _, _, _, _, _ = params
             for j in range(n_realisations):
                 if cap == "tight":
@@ -247,9 +254,13 @@ class InstanceCreator():
                 else:
                     max_demand = max(self.realisations[scenario]["demands"][j])
                     self.add_capacity(scenario, 3*max_demand)
+            cnt += 1
     
     def add_time_windows(self):
+        n_sc = len(self.scenarios)
+        cnt = 0
         for scenario, params in self.scenarios.items():
+            print("Adding TW "+str(cnt)+" of "+str(n_sc))
             n_realisations, _, _, _, _, _, _, tw, tw_dist, _, _ = params
             for j in range(n_realisations):
                 max_dist, min_dist = self.get_max_min_distance(scenario)
@@ -268,7 +279,7 @@ class InstanceCreator():
                         r = randint(0, 10)
                         if r > 4:
                             pseudo_median_dist = (max_dist + min_dist)/2
-                            latest_latest_arrival = pseudo_median_dist * self.scenario_size // 2
+                            latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 2)
                             for i in range(self.scenario_size):
                                 earliest_arrival = randint(0, latest_latest_arrival)
                                 latest_departure = earliest_arrival + 50 + 10
@@ -278,13 +289,13 @@ class InstanceCreator():
                             for i in range(self.scenario_size):
                                 earliest_arrival = randint(0, 100)
                                 latest_departure = earliest_arrival + 50 + 10
-                                time_windows.append(earliest_arrival, latest_departure)
+                                time_windows.append((earliest_arrival, latest_departure))
                             self.add_time_window(scenario, time_windows)
                 else:
                     if tw_dist == "uniform":
                         time_windows = []
                         pseudo_median_dist = (max_dist + min_dist)/2
-                        latest_latest_arrival = pseudo_median_dist * self.scenario_size // 2
+                        latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 2)
                         for i in range(self.scenario_size):
                             earliest_arrival = randint(0, latest_latest_arrival)
                             latest_departure = earliest_arrival + randint(100, 400) + 10
@@ -295,7 +306,7 @@ class InstanceCreator():
                         r = randint(0, 10)
                         if r > 4:
                             pseudo_median_dist = (max_dist + min_dist)/2
-                            latest_latest_arrival = pseudo_median_dist * self.scenario_size // 2
+                            latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 2)
                             for i in range(self.scenario_size):
                                 earliest_arrival = randint(0, latest_latest_arrival)
                                 latest_departure = earliest_arrival + randint(100, 400) + 10
@@ -305,11 +316,15 @@ class InstanceCreator():
                             for i in range(self.scenario_size):
                                 earliest_arrival = randint(0, 100)
                                 latest_departure = earliest_arrival + randint(100, 400) + 10
-                                time_windows.append(earliest_arrival, latest_departure)
+                                time_windows.append((earliest_arrival, latest_departure))
                             self.add_time_window(scenario, time_windows)
+            cnt += 1
 
     def add_fleets(self):
+        n_sc = len(self.scenarios)
+        cnt = 0
         for scenario, params in self.scenarios.items():
+            print("Adding fleet "+str(cnt)+" of "+str(n_sc))
             n_realisations, _, _, _, _, _, fleet, _, _, _, _ = params
             for j in range(n_realisations):
                 max_dist, min_dist = self.get_max_min_distance(scenario)
@@ -325,6 +340,7 @@ class InstanceCreator():
                 else:
                     fleet_size = int(median_trip//cap + 10)
                     self.add_fleet(scenario, fleet_size)
+            cnt += 1
 
     def scenario_generator(self, sample_size = 20):
         location_distributions = ["double_uniform", "bivariate_normal", "double_normal", "linear_combination"] #
