@@ -1,7 +1,8 @@
 import numpy as np
 from random import randint
-from math import sqrt
+from math import sqrt, ceil
 from sys import float_info
+from statistics import mean
 import pickle
 
 # Format relevant data in a class
@@ -250,10 +251,10 @@ class InstanceCreator():
             for j in range(n_realisations):
                 if cap == "tight":
                     max_demand = max(self.realisations[scenario]["demands"][j])
-                    self.add_capacity(scenario, max_demand)
+                    self.add_capacity(scenario, 2 * max_demand)
                 else:
                     max_demand = max(self.realisations[scenario]["demands"][j])
-                    self.add_capacity(scenario, 3*max_demand)
+                    self.add_capacity(scenario, 5*max_demand)
             cnt += 1
     
     def add_time_windows(self):
@@ -268,7 +269,7 @@ class InstanceCreator():
                     if tw_dist == "uniform":
                         time_windows = []
                         pseudo_median_dist = (max_dist + min_dist)/2
-                        latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 2)
+                        latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 4)
                         for i in range(self.scenario_size):
                             earliest_arrival = randint(0, latest_latest_arrival)
                             latest_departure = earliest_arrival + 50 + 10
@@ -279,7 +280,7 @@ class InstanceCreator():
                         r = randint(0, 10)
                         if r > 4:
                             pseudo_median_dist = (max_dist + min_dist)/2
-                            latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 2)
+                            latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 4)
                             for i in range(self.scenario_size):
                                 earliest_arrival = randint(0, latest_latest_arrival)
                                 latest_departure = earliest_arrival + 50 + 10
@@ -295,7 +296,7 @@ class InstanceCreator():
                     if tw_dist == "uniform":
                         time_windows = []
                         pseudo_median_dist = (max_dist + min_dist)/2
-                        latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 2)
+                        latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 4)
                         for i in range(self.scenario_size):
                             earliest_arrival = randint(0, latest_latest_arrival)
                             latest_departure = earliest_arrival + randint(100, 400) + 10
@@ -306,7 +307,7 @@ class InstanceCreator():
                         r = randint(0, 10)
                         if r > 4:
                             pseudo_median_dist = (max_dist + min_dist)/2
-                            latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 2)
+                            latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 4)
                             for i in range(self.scenario_size):
                                 earliest_arrival = randint(0, latest_latest_arrival)
                                 latest_departure = earliest_arrival + randint(100, 400) + 10
@@ -327,18 +328,17 @@ class InstanceCreator():
             print("Adding fleet "+str(cnt)+" of "+str(n_sc))
             n_realisations, _, _, _, _, _, fleet, _, _, _, _ = params
             for j in range(n_realisations):
-                max_dist, min_dist = self.get_max_min_distance(scenario)
-                pseudo_median_dist = (max_dist+min_dist)/2
                 cap = self.realisations[scenario]["capacities"][j]
-                total_demand = sum(self.realisations[scenario]["demands"][j])
-                max_departure = max(self.realisations[scenario]["time_windows"][j], key=lambda item: item[1])[0]
-                r_loadxtime = total_demand/max_departure
-                median_trip = pseudo_median_dist * 2 * r_loadxtime
+                demands = self.realisations[scenario]["demands"][j]
+                total_demand = sum(demands)
+                average_demand = mean(demands)
+                delta = 60
+                width = self.ub - self.lb
                 if fleet == "tight":
-                    fleet_size = int(median_trip//cap + 1)
+                    fleet_size = int(ceil((total_demand*average_demand)/(cap**2)) +  ceil((self.scenario_size*delta**2)/(cap*width**2)))
                     self.add_fleet(scenario, fleet_size)
                 else:
-                    fleet_size = int(median_trip//cap + 10)
+                    fleet_size = int(ceil(1.2*(total_demand*average_demand)/(cap**2)) +  ceil(1.2*(self.scenario_size*delta**2)/(cap*width**2)))
                     self.add_fleet(scenario, fleet_size)
             cnt += 1
 

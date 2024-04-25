@@ -1,0 +1,105 @@
+%
+% Specific
+%						4		
+%
+% Subproblem
+%
+NgNeighborhoodSize							1
+HeuristicPricersNetworkSizes				-1
+Solver									3
+MaxNumReturnPathFactor						4
+NumBucketsInLabeling						1
+%
+% Cuts
+%
+% cutting planes
+%
+CuttingPlanes								true
+EarlyBranching								false  %Only early cutting for SR atm -> new lb smaller error possible
+UselmSRCuts									false
+MaxNumberlmSRTotal							300
+MaxNumberlmSRIter							25
+MaxNumberlmSRCustomer						20
+MaxlmSRCustomerAndIter						3
+%
+CutTolerance								0.05
+CuttingUpToLevel							1
+UseRoundedCapacityCuts						false
+MaxNumberRoundedCapacityTotal				300
+MaxNumberRoundedCapacityIter				300
+UseKPathCuts								false
+MaxNumberKPathTotal							250
+MaxNumberKPathIter							250
+MaxSetSizeKPath								8
+MaxInclusionKPath							8
+TimeLimitKPath								60
+%
+% Branching
+%
+Branching									false
+BranchingPriorityNumVehicles				1
+BranchingPriorityArcs						2
+BranchVal									0.5
+BranchingNodeSelection						BestFirst
+%
+% Strong Branching
+%
+StrongBranching								false
+PricersUsedForStrongBranching				7
+StrongBranchingRule							Product
+StrongBranchingUptoLevel					10
+StrongBranchingNumCandidates				20
+StrongBranchingMinNumCandidates				5
+StrongBranchingNumCandidatesDecreasePerLevel		1.0
+%
+% Unspecific
+%
+% info
+%
+InfoLevel								1
+InfoStatisticsLevel							1
+InfoDottyOutput								false
+InfoGnuplotOutput							false
+InfoGraphMLOutput							false
+InfoTikzOutput								false
+InfoPrintBestSolution						false
+InfoPrintOverallBestSolution				true
+InfoConvergency								false
+MaxSolutionTimeSec							3600
+ReloadSettings								false
+%
+% global settings
+%
+UseLPOptimizer								primal
+MaxColumnsToAddInPricing					1000
+MaxRatioColsToRows							100.0
+UseLagrangeanLB								false
+Debug										false
+Stabilization								true
+%
+% Subproblem
+%
+PricingHierarchyMinNumColsToGenerate		1
+PricingHierarchyMaxNumFailuresBeforeSwitchOff		999999
+%
+% MIP as heuristic
+%
+UseMIPSolverForUBs							false
+UseMIPSolverUpFromLevel						0
+UseMIPSolverUptoLevel						0
+MIPMaxSolutionTimeSec						300
+MaxRatioColsToRowsMIP						1000
+SolveAsMipAfterTimeOut						true
+%
+% Fixing
+%
+ReducedCostVariableFixing					false
+ReducedCostVariableFixingSingleArcs			false
+ReducedCostVariableFixingArcPairs			false
+ReducedCostVariableFixingWithBreaking		false
+UseBKSasUpperBound							false
+UseUBPlusOne								false
+UseBoundingForMonodirectionalLabeling		false
+NumBucketsTimeForBoundingMatrix				200
+NumBucketsLoadForBoundingMatrix				100
+UseAugmentedNgSet							true
