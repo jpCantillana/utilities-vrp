@@ -242,7 +242,7 @@ class InstanceCreator():
                     self.add_service_time(scenario, service_times)
             cnt += 1
     
-    def add_capacities(self):
+    def add_capacities(self, tight_factor=5, loose_factor=20):
         n_sc = len(self.scenarios)
         cnt = 0
         for scenario, params in self.scenarios.items():
@@ -250,11 +250,11 @@ class InstanceCreator():
             n_realisations, _, _, _, _, cap, _, _, _, _, _ = params
             for j in range(n_realisations):
                 if cap == "tight":
-                    max_demand = max(self.realisations[scenario]["demands"][j])
-                    self.add_capacity(scenario, 2 * max_demand)
+                    sum_demand = sum(self.realisations[scenario]["demands"][j])
+                    self.add_capacity(scenario, ceil(tight_factor/self.scenario_size * sum_demand)) # from Uchoa et al. New benchmark instances for the Capacitated Vehicle Routing Problem
                 else:
-                    max_demand = max(self.realisations[scenario]["demands"][j])
-                    self.add_capacity(scenario, 5*max_demand)
+                    sum_demand = sum(self.realisations[scenario]["demands"][j])
+                    self.add_capacity(scenario, ceil(loose_factor/self.scenario_size * sum_demand)) # from Uchoa et al. New benchmark instances for the Capacitated Vehicle Routing Problem
             cnt += 1
     
     def add_time_windows(self):
@@ -342,27 +342,38 @@ class InstanceCreator():
                     self.add_fleet(scenario, fleet_size)
             cnt += 1
 
-    def scenario_generator(self, sample_size = 4):
-        location_distributions = ["double_uniform", "bivariate_normal", "double_normal", "linear_combination"] #
+    def scenario_generator(self, sample_size = 4, location_distributions = [], depot_locations = [], clusters = [], uniform_params = [], normal_params = [], demand_dist = [], capacity_dist = [], fleet_type = [], tw_type = [], tw_dist = []):
+        
+        if location_distributions == []:
+            location_distributions = ["double_uniform", "bivariate_normal", "double_normal", "linear_combination"] #
         lc_alpha_beta = [(0.5,0.5), (0,0.5), (0.5,0), (0.33, 0.33)] #
-        depot_locations = ["central", "annular", "satelite"] #
-        clusters = [0, 1, 2, 3] #
-        uniform_params = [(0,100), (40, 60), (30, 40), (70, 80)]
+        if depot_locations == []:
+            depot_locations = ["central", "annular", "satelite"] #
+        if clusters == []:
+            clusters = [0, 1, 2, 3] #
+        if uniform_params == []:
+            uniform_params = [(0,100), (40, 60), (30, 40), (70, 80)]
         self.set_uniform_parameters(uniform_params[0][0], uniform_params[0][1])
         self.set_auxiliar_uniform_clusters(uniform_params[1:])
-        normal_params = [
-            (50, 50, 15, 5, 5, 10),
-            (20, 60, 10, 15, 1, 10),
-            (70, 10, 5, 15, 1, 15),
-            (90, 50, 5, 5, 1, 5)
-        ]
+        if normal_params == []:
+            normal_params = [
+                (50, 50, 15, 5, 5, 10),
+                (20, 60, 10, 15, 1, 10),
+                (70, 10, 5, 15, 1, 15),
+                (90, 50, 5, 5, 1, 5)
+            ]
         self.set_normal_parameters(normal_params[0][0], normal_params[0][1], normal_params[0][2], normal_params[0][3], normal_params[0][4], normal_params[0][5])
         self.set_auxiliar_normal_clusters(normal_params[1:])
-        demand_dist = ["constant", "uniform", "normal", "poisson"] #
-        capacity_dist = ["tight", "loose"] #
-        fleet_type = ["tight", "loose"] #
-        tw_type = ["tight", "loose"] #
-        tw_dist = ["uniform", "early"] #
+        if demand_dist == []:
+            demand_dist = ["constant", "uniform", "normal", "poisson"] #
+        if capacity_dist == []:
+            capacity_dist = ["tight", "loose"] #
+        if fleet_type == []:
+            fleet_type = ["tight", "loose"] #
+        if tw_type == []:
+            tw_type = ["tight", "loose"] #
+        if tw_dist == []:
+            tw_dist = ["uniform", "early"] #
         for twd in tw_dist:
             for twt in tw_type:
                 for ft in fleet_type:
@@ -381,10 +392,22 @@ class InstanceCreator():
                                             self.add_scenario(name, sample_size, lc, dp, cl, dd, cp, ft, twt, twd)
 
 instance_object = InstanceCreator(scenario_size=100)
-instance_object.scenario_generator()
+instance_object.scenario_generator(
+    sample_size=1, 
+    location_distributions=["linear_combination"], 
+    depot_locations=["annular"], 
+    clusters=[0], 
+    demand_dist=["poisson"], 
+    capacity_dist=["tight"], 
+    fleet_type=["loose"], 
+    tw_dist=["uniform"], 
+    tw_type=["loose"]
+    )
 instance_object.location_algo()
 instance_object.add_demands()
-instance_object.add_capacities()
+tight_factor = 20
+loose_factor = 200
+instance_object.add_capacities(tight_factor, loose_factor)
 instance_object.add_time_windows()
 instance_object.add_fleets()
 
@@ -392,13 +415,13 @@ instance_object.add_fleets()
 #     pickle.dump(instance_object.realisations, f)
 
 # Create instances
-output_dir = 'outputs'
+output_dir = 'outputs9'
 
 counter = -1
 for i in instance_object.realisations:
     for j in range(len(instance_object.realisations[i]["locations"])):
         counter += 1
-        name = 'J{:06d}'.format(counter)
+        name = 'JU6H{:06d}'.format(counter)
         max_dep = max(instance_object.realisations[i]["time_windows"][j], key=lambda item: item[1])[0]
         vehicles = instance_object.realisations[i]["fleets"][j]
         capacity = instance_object.realisations[i]["capacities"][j]
