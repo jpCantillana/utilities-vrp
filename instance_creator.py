@@ -240,6 +240,26 @@ class InstanceCreator():
                             service_times.append(5)
                     self.add_demand(scenario, demands_list)
                     self.add_service_time(scenario, service_times)
+                elif demand_dist == "uniform_pdp":
+                    demands_list_pickup = []
+                    demands_list_delivery = []
+                    demands_list = []
+                    service_times_pickup = []
+                    service_times_delivery = []
+                    service_times = []
+                    for i in range(self.scenario_size/2):
+                        demands_list_pickup.append(randint(1,10))
+                        demands_list_delivery.append(-demands_list_pickup[-1])
+                        if demands_list[-1] > 9:
+                            service_times_pickup.append(10)
+                            service_times_delivery.append(10)
+                        else:
+                            service_times_pickup.append(5)
+                            service_times_delivery.append(5)
+                    demands_list = demands_list_pickup + demands_list_delivery
+                    service_times = service_times_pickup + service_times_delivery
+                    self.add_demand(scenario, demands_list)
+                    self.add_service_time(scenario, service_times)
             cnt += 1
     
     def add_capacities(self, tight_factor=5, loose_factor=20):
