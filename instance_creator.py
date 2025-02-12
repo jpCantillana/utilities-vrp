@@ -295,6 +295,19 @@ class InstanceCreator():
                             latest_departure = earliest_arrival + 50 + 10
                             time_windows.append((earliest_arrival, latest_departure))
                         self.add_time_window(scenario, time_windows)
+                    elif tw_dist == "uniform-pdp":
+                        time_windows_pickup = []
+                        time_windows_delivery = []
+                        time_windows = []
+                        pseudo_median_dist = (max_dist + min_dist)/2
+                        latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 4)
+                        for i in range(self.scenario_size/2):
+                            earliest_arrival = randint(0, latest_latest_arrival/2)
+                            latest_departure = earliest_arrival + 50 + 10
+                            time_windows_pickup.append((earliest_arrival, latest_departure))
+                            time_windows_delivery.append((latest_departure + 50, 2*latest_departure + 50 - earliest_arrival))
+                        time_windows = time_windows_pickup + time_windows_delivery
+                        self.add_time_window(scenario, time_windows)
                     else:
                         time_windows = []
                         r = randint(0, 10)
@@ -321,6 +334,19 @@ class InstanceCreator():
                             earliest_arrival = randint(0, latest_latest_arrival)
                             latest_departure = earliest_arrival + randint(100, 400) + 10
                             time_windows.append((earliest_arrival, latest_departure))
+                        self.add_time_window(scenario, time_windows)
+                    elif tw_dist == "uniform-pdp":
+                        time_windows_pickup = []
+                        time_windows_delivery = []
+                        time_windows = []
+                        pseudo_median_dist = (max_dist + min_dist)/2
+                        latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 4)
+                        for i in range(self.scenario_size/2):
+                            earliest_arrival = randint(0, latest_latest_arrival/2)
+                            latest_departure = earliest_arrival + randint(100, 400) + 10
+                            time_windows_pickup.append((earliest_arrival, latest_departure))
+                            time_windows_delivery.append((latest_departure + randint(100, 400), 2*latest_departure + randint(100, 400) - earliest_arrival))
+                        time_windows = time_windows_pickup + time_windows_delivery
                         self.add_time_window(scenario, time_windows)
                     else:
                         time_windows = []
