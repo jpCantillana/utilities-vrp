@@ -247,10 +247,10 @@ class InstanceCreator():
                     service_times_pickup = []
                     service_times_delivery = []
                     service_times = []
-                    for i in range(self.scenario_size/2):
+                    for i in range(self.scenario_size//2):
                         demands_list_pickup.append(randint(1,10))
                         demands_list_delivery.append(-demands_list_pickup[-1])
-                        if demands_list[-1] > 9:
+                        if demands_list_pickup[-1] > 9:
                             service_times_pickup.append(10)
                             service_times_delivery.append(10)
                         else:
@@ -270,10 +270,19 @@ class InstanceCreator():
             n_realisations, _, _, _, _, cap, _, _, _, _, _ = params
             for j in range(n_realisations):
                 if cap == "tight":
-                    sum_demand = sum(self.realisations[scenario]["demands"][j])
+                    demands = self.realisations[scenario]["demands"][j]
+                    sum_demand = 0
+                    for d in demands:
+                        if d > 0:
+                            sum_demand += d
+                    # sum_demand = sum(self.realisations[scenario]["demands"][j])
                     self.add_capacity(scenario, ceil(tight_factor/self.scenario_size * sum_demand)) # from Uchoa et al. New benchmark instances for the Capacitated Vehicle Routing Problem
                 else:
-                    sum_demand = sum(self.realisations[scenario]["demands"][j])
+                    demands = self.realisations[scenario]["demands"][j]
+                    sum_demand = 0
+                    for d in demands:
+                        if d > 0:
+                            sum_demand += d
                     self.add_capacity(scenario, ceil(loose_factor/self.scenario_size * sum_demand)) # from Uchoa et al. New benchmark instances for the Capacitated Vehicle Routing Problem
             cnt += 1
     
@@ -301,11 +310,11 @@ class InstanceCreator():
                         time_windows = []
                         pseudo_median_dist = (max_dist + min_dist)/2
                         latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 4)
-                        for i in range(self.scenario_size/2):
-                            earliest_arrival = randint(0, latest_latest_arrival/2)
+                        for i in range(self.scenario_size//2):
+                            earliest_arrival = randint(0, latest_latest_arrival/2 + 300)
                             latest_departure = earliest_arrival + 50 + 10
                             time_windows_pickup.append((earliest_arrival, latest_departure))
-                            time_windows_delivery.append((latest_departure + 50, 2*latest_departure + 50 - earliest_arrival))
+                            time_windows_delivery.append((earliest_arrival + 300 + 50, earliest_arrival + 300 + 50 + latest_departure - earliest_arrival))
                         time_windows = time_windows_pickup + time_windows_delivery
                         self.add_time_window(scenario, time_windows)
                     else:
@@ -341,11 +350,12 @@ class InstanceCreator():
                         time_windows = []
                         pseudo_median_dist = (max_dist + min_dist)/2
                         latest_latest_arrival = int(pseudo_median_dist * self.scenario_size // 4)
-                        for i in range(self.scenario_size/2):
-                            earliest_arrival = randint(0, latest_latest_arrival/2)
-                            latest_departure = earliest_arrival + randint(100, 400) + 10
+                        for i in range(self.scenario_size//2):
+                            earliest_arrival = randint(0, latest_latest_arrival//2 + 300)
+                            latest_departure = earliest_arrival + randint(100, 400)
+                            spacing = randint(100, 500)
                             time_windows_pickup.append((earliest_arrival, latest_departure))
-                            time_windows_delivery.append((latest_departure + randint(100, 400), 2*latest_departure + randint(100, 400) - earliest_arrival))
+                            time_windows_delivery.append((earliest_arrival + spacing + randint(100, 400), latest_departure + spacing + randint(100, 400)))
                         time_windows = time_windows_pickup + time_windows_delivery
                         self.add_time_window(scenario, time_windows)
                     else:
@@ -375,8 +385,15 @@ class InstanceCreator():
             n_realisations, _, _, _, _, _, fleet, _, _, _, _ = params
             for j in range(n_realisations):
                 cap = self.realisations[scenario]["capacities"][j]
-                demands = self.realisations[scenario]["demands"][j]
-                total_demand = sum(demands)
+                demands_raw = self.realisations[scenario]["demands"][j]
+                demands = []
+                total_demand = 0
+                for d in demands_raw:
+                    if d > 0:
+                        total_demand += d
+                        demands.append(d)
+                # demands = self.realisations[scenario]["demands"][j]
+                # total_demand = sum(demands)
                 average_demand = mean(demands)
                 delta = 60
                 width = self.ub - self.lb
@@ -437,16 +454,36 @@ class InstanceCreator():
                                             name = "loc_" + lc + "-" + "cluster_" + str(cl) + "-depot_" + dp + "-demandDist_" + dd + "-capDist_" + cp + "-fleet_" + ft + "-twType_" + twt + "-twDist" + twd
                                             self.add_scenario(name, sample_size, lc, dp, cl, dd, cp, ft, twt, twd)
 
+# instance_object = InstanceCreator(scenario_size=100)
+# instance_object.scenario_generator(
+#     sample_size=1, 
+#     location_distributions=["linear_combination"], 
+#     depot_locations=["annular"], 
+#     clusters=[0], 
+#     demand_dist=["poisson"], 
+#     capacity_dist=["tight"], 
+#     fleet_type=["loose"], 
+#     tw_dist=["uniform"], 
+#     tw_type=["loose"]
+#     )
+# instance_object.location_algo()
+# instance_object.add_demands()
+# tight_factor = 20
+# loose_factor = 200
+# instance_object.add_capacities(tight_factor, loose_factor)
+# instance_object.add_time_windows()
+# instance_object.add_fleets()
+
 instance_object = InstanceCreator(scenario_size=100)
 instance_object.scenario_generator(
-    sample_size=1, 
+    sample_size=250, 
     location_distributions=["linear_combination"], 
     depot_locations=["annular"], 
     clusters=[0], 
-    demand_dist=["poisson"], 
+    demand_dist=["uniform_pdp"], 
     capacity_dist=["tight"], 
     fleet_type=["loose"], 
-    tw_dist=["uniform"], 
+    tw_dist=["uniform-pdp"], 
     tw_type=["loose"]
     )
 instance_object.location_algo()
@@ -461,58 +498,85 @@ instance_object.add_fleets()
 #     pickle.dump(instance_object.realisations, f)
 
 # Create instances
-output_dir = 'outputs9'
+output_dir = 'outputs10_pdp'
 
+# counter = -1
+# for i in instance_object.realisations:
+#     for j in range(len(instance_object.realisations[i]["locations"])):
+#         counter += 1
+#         name = 'JU6H{:06d}'.format(counter)
+#         max_dep = max(instance_object.realisations[i]["time_windows"][j], key=lambda item: item[1])[0]
+#         vehicles = instance_object.realisations[i]["fleets"][j]
+#         capacity = instance_object.realisations[i]["capacities"][j]
+#         customers = instance_object.realisations[i]["locations"][j]
+#         text = '//' + i + '\n' + name +'\n\nVEHICLE\nNUMBER     CAPACITY\n'
+#         v_format = "    "
+#         v_format = v_format[0:4-len(str(vehicles))] + str(vehicles)
+#         c_format = "           "
+#         c_format = c_format[0:11-len(str(capacity))] + str(capacity)
+#         text += v_format + "  " + c_format + "\n\nCUSTOMER\nCUST NO.   XCOORD.   YCOORD.   DEMAND    READY TIME   DUE DATE   SERVICE TIME\n\n"
+#         cust_id_format = "   "
+#         cust_x_format = "      "
+#         cust_y_format = "         "
+#         cust_d_format = "         "
+#         cust_arr_format = "         "
+#         cust_dep_format = "         "
+#         cust_st_format = "         "
+#         cust_id_format = cust_id_format[0:3-len(str(0))] + str(0)
+#         cust_x_format = cust_x_format[0:6-len(str(instance_object.realisations[i]["depots"][0][0]))] + str(instance_object.realisations[i]["depots"][0][0])
+#         cust_y_format = cust_y_format[0:9-len(str(instance_object.realisations[i]["depots"][0][1]))] + str(instance_object.realisations[i]["depots"][0][1])
+#         cust_d_format = cust_d_format[0:9-len(str(0))] + str(0)
+#         cust_arr_format = cust_arr_format[0:9-len(str(0))] + str(0)
+#         cust_dep_format = cust_dep_format[0:9-len(str(max_dep + 300))] + str(max_dep+300)
+#         cust_st_format = cust_st_format[0:9-len(str(0))] + str(0)
+#         text += "  "+cust_id_format+"  "+cust_x_format+"  "+cust_y_format+"  "+cust_d_format+"  "+cust_arr_format+"  "+cust_dep_format+"  "+cust_st_format+"\n"
+#         for cust_idx in range(len(customers)):
+#             cust_id_format = "   "
+#             customer_latlon = customers[cust_idx]
+#             customer_demand = instance_object.realisations[i]["demands"][j][cust_idx]
+#             arrdep = instance_object.realisations[i]["time_windows"][j][cust_idx]
+#             stimes = instance_object.realisations[i]["service_times"][j][cust_idx]
+#             cust_id_format = cust_id_format[0:3-len(str(cust_idx+1))] + str(cust_idx+1)
+#             cust_x_format = "      "
+#             cust_x_format = cust_x_format[0:6-len(str(customer_latlon[0]))] + str(customer_latlon[0])
+#             cust_y_format = "         "
+#             cust_y_format = cust_y_format[0:9-len(str(customer_latlon[1]))] + str(customer_latlon[1])
+#             cust_d_format = "         "
+#             cust_d_format = cust_d_format[0:9-len(str(customer_demand))] + str(customer_demand)
+#             cust_arr_format = "         "
+#             cust_arr_format = cust_arr_format[0:9-len(str(arrdep[0]))] + str(arrdep[0])
+#             cust_dep_format = "         "
+#             cust_dep_format = cust_dep_format[0:9-len(str(arrdep[1]))] + str(arrdep[1])
+#             cust_st_format = "         "
+#             cust_st_format = cust_st_format[0:9-len(str(stimes))] + str(stimes)
+#             text += "  "+cust_id_format+"  "+cust_x_format+"  "+cust_y_format+"  "+cust_d_format+"  "+cust_arr_format+"  "+cust_dep_format+"  "+cust_st_format+"\n"
+#         with open("{}/{}.txt".format(output_dir,name), "w") as text_file:
+#             text_file.write(text)
+#             text_file.close()
+
+
+#### format Roepke
 counter = -1
 for i in instance_object.realisations:
     for j in range(len(instance_object.realisations[i]["locations"])):
         counter += 1
-        name = 'JU6H{:06d}'.format(counter)
+        name = 'JPDP1{:06d}'.format(counter)
         max_dep = max(instance_object.realisations[i]["time_windows"][j], key=lambda item: item[1])[0]
         vehicles = instance_object.realisations[i]["fleets"][j]
         capacity = instance_object.realisations[i]["capacities"][j]
         customers = instance_object.realisations[i]["locations"][j]
-        text = '//' + i + '\n' + name +'\n\nVEHICLE\nNUMBER     CAPACITY\n'
-        v_format = "    "
-        v_format = v_format[0:4-len(str(vehicles))] + str(vehicles)
-        c_format = "           "
-        c_format = c_format[0:11-len(str(capacity))] + str(capacity)
-        text += v_format + "  " + c_format + "\n\nCUSTOMER\nCUST NO.   XCOORD.   YCOORD.   DEMAND    READY TIME   DUE DATE   SERVICE TIME\n\n"
-        cust_id_format = "   "
-        cust_x_format = "      "
-        cust_y_format = "         "
-        cust_d_format = "         "
-        cust_arr_format = "         "
-        cust_dep_format = "         "
-        cust_st_format = "         "
-        cust_id_format = cust_id_format[0:3-len(str(0))] + str(0)
-        cust_x_format = cust_x_format[0:6-len(str(instance_object.realisations[i]["depots"][0][0]))] + str(instance_object.realisations[i]["depots"][0][0])
-        cust_y_format = cust_y_format[0:9-len(str(instance_object.realisations[i]["depots"][0][1]))] + str(instance_object.realisations[i]["depots"][0][1])
-        cust_d_format = cust_d_format[0:9-len(str(0))] + str(0)
-        cust_arr_format = cust_arr_format[0:9-len(str(0))] + str(0)
-        cust_dep_format = cust_dep_format[0:9-len(str(max_dep + 300))] + str(max_dep+300)
-        cust_st_format = cust_st_format[0:9-len(str(0))] + str(0)
-        text += "  "+cust_id_format+"  "+cust_x_format+"  "+cust_y_format+"  "+cust_d_format+"  "+cust_arr_format+"  "+cust_dep_format+"  "+cust_st_format+"\n"
+        text = '//' + i + '\n' + name +'\n'
+        first_row = "{}\t{}\t{}\t{}\t{}\n".format(len(customers)//2, len(customers)//2, max_dep+500, capacity, max_dep+500)
+        text += first_row
+        text += "\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(0, instance_object.realisations[i]["depots"][0][0], instance_object.realisations[i]["depots"][0][1], 0, 0, 0, max_dep+500)
         for cust_idx in range(len(customers)):
-            cust_id_format = "   "
             customer_latlon = customers[cust_idx]
             customer_demand = instance_object.realisations[i]["demands"][j][cust_idx]
             arrdep = instance_object.realisations[i]["time_windows"][j][cust_idx]
             stimes = instance_object.realisations[i]["service_times"][j][cust_idx]
-            cust_id_format = cust_id_format[0:3-len(str(cust_idx+1))] + str(cust_idx+1)
-            cust_x_format = "      "
-            cust_x_format = cust_x_format[0:6-len(str(customer_latlon[0]))] + str(customer_latlon[0])
-            cust_y_format = "         "
-            cust_y_format = cust_y_format[0:9-len(str(customer_latlon[1]))] + str(customer_latlon[1])
-            cust_d_format = "         "
-            cust_d_format = cust_d_format[0:9-len(str(customer_demand))] + str(customer_demand)
-            cust_arr_format = "         "
-            cust_arr_format = cust_arr_format[0:9-len(str(arrdep[0]))] + str(arrdep[0])
-            cust_dep_format = "         "
-            cust_dep_format = cust_dep_format[0:9-len(str(arrdep[1]))] + str(arrdep[1])
-            cust_st_format = "         "
-            cust_st_format = cust_st_format[0:9-len(str(stimes))] + str(stimes)
-            text += "  "+cust_id_format+"  "+cust_x_format+"  "+cust_y_format+"  "+cust_d_format+"  "+cust_arr_format+"  "+cust_dep_format+"  "+cust_st_format+"\n"
+
+            text += "\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(cust_idx+1, customer_latlon[0], customer_latlon[1], stimes, customer_demand, arrdep[0], arrdep[1])
+        text += "\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(len(customers) + 1, instance_object.realisations[i]["depots"][0][0], instance_object.realisations[i]["depots"][0][1], 0, 0, 0, max_dep+500)
         with open("{}/{}.txt".format(output_dir,name), "w") as text_file:
             text_file.write(text)
             text_file.close()
