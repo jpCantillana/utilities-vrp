@@ -35,9 +35,8 @@ class RandomDistribution(DistributionStrategy):
         return sample
 
 class ClusteredDistribution(DistributionStrategy):
-    def __init__(self, n_seeds: int, n_points: int, lambda_val: float):
+    def __init__(self, n_seeds: int, lambda_val: float):
         self.n_seeds = n_seeds
-        self.n_points = n_points
         self.lambda_val = lambda_val
         self.pseudo_dist_vals = {}
     
@@ -87,6 +86,17 @@ class ClusteredDistribution(DistributionStrategy):
         for _ in range(n):
             sample.append(self.generate())
         return sample
+
+class UniformDistribution(DistributionStrategy):
+    def __init__(self, low: float, high: float):
+        self.low = low
+        self.high = high
+    
+    def generate(self) -> float:
+        return np.random.uniform(self.low, self.high)
+    
+    def generate_batch(self, n: int) -> List[float]:
+        return np.random.uniform(self.low, self.high, n).tolist()
 
 class FixedCountDistribution(DistributionStrategy):
     def __init__(self, distributions: List[DistributionStrategy], counts: List[int]):
@@ -160,15 +170,22 @@ class RandomInstanceBuilder:
             return [self.generate() for _ in range(n)]
         
 # Define distributions
-age_dist = FixedCountDistribution(
-    distributions=[
-        UniformDistribution(30, 40),
-        UniformDistribution(60, 70)
-    ],
-    counts=[2, 2] 
-)
+if scenario.location == "R":
+    pass
+elif scenario.location == "C":
+    pass
+elif scenario.location == "RC":
+    n_clusters = int(UniformDistribution(3,8.999))
+    CustomerRandomClustered = FixedCountDistribution(
+        distributions=[
+            ClusteredDistribution(n_clusters, 10),
+            UniformDistribution(0, 100)
+        ],
+        counts=[50, 50] 
+    )
+else:
+    raise ValueError("Not implemented location distribution")
 
-income_dist = NormalDistribution(50_000, 10_000)
 
 # Build and generate
 builder = RandomInstanceBuilder() \
