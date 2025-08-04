@@ -405,7 +405,7 @@ class InstanceSetMaker():
 
                 # Depot
                 depot = instance["depot"]
-                f.write(f"{0:>9}   {int(depot[0]):>7.2f}   {int(depot[1]):>7.2f}   {0:>6}   {0:>11}   {meta['time_horizon']:>9}   {0:>13}\n")
+                f.write(f"{0:>9}   {int(depot[0]):>7f}   {int(depot[1]):>7f}   {0:>6}   {0:>11}   {meta['time_horizon']:>9}   {0:>13}\n")
 
                 # Customers
                 for j, (coord, demand, tw) in enumerate(zip(instance["customers"], instance["demands"], instance["time_windows"]), start=1):
