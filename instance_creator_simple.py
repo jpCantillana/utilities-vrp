@@ -405,13 +405,13 @@ class InstanceSetMaker():
 
                 # Depot
                 depot = instance["depot"]
-                f.write(f"{0:>9}   {int(depot[0]):>7f}   {int(depot[1]):>7f}   {0:>6}   {0:>11}   {meta['time_horizon']:>9}   {0:>13}\n")
+                f.write(f"{0:>9}   {int(depot[0]):>6}   {int(depot[1]):>6}   {0:>6}   {0:>11}   {meta['time_horizon']:>9}   {0:>13}\n")
 
                 # Customers
                 for j, (coord, demand, tw) in enumerate(zip(instance["customers"], instance["demands"], instance["time_windows"]), start=1):
                     x, y = coord
                     ready_time, due_date = tw
-                    f.write(f"{j:>9}   {int(x):>7.2f}   {int(y):>7.2f}   {int(demand):>6}   {int(ready_time):>11}   {int(due_date):>9}   {10:>13}\n")
+                    f.write(f"{j:>9}   {int(x):>6}   {int(y):>6}   {int(demand):>6}   {int(ready_time):>11}   {int(due_date):>9}   {10:>13}\n")
     
 set_maker = InstanceSetMaker()
 instances = set_maker.generate_all_combinations(samples_per_config=15)
