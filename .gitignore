@@ -9,7 +9,7 @@
 *.cfg
 *.pkl
 /instances
-*.tex
+instance_summary.tex
 *.aux
 *.fdb_latexmk
 *.fls
