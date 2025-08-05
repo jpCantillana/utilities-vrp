@@ -9,3 +9,10 @@
 *.cfg
 *.pkl
 /instances
+*.tex
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.pdf
+*.gz

@@ -374,20 +374,22 @@ class InstanceSetMaker():
     def save_instances_as_txt(self, instances: List[Dict[str, Any]], output_dir: str):
         import os
         os.makedirs(output_dir, exist_ok=True)
+        
+        #["random", "center", "corner"]["random", "clustered", "random_clustered"]["unitary", "u_1_4", "u_3_4", "u_1_10", "u_5_10", "mixture"]["tight", "large"]
+        abbreviations = {
+            "random": "R",
+            "clustered": "C",
+            "random_clustered": "RC"
+            
+        }
 
         for i, instance in enumerate(instances):
             meta = instance["meta"]
             name_parts = [
-                f"depot-{meta['depot_positioning']}",
-                f"dist-{meta['customer_distribution']}",
-                f"demand-{meta['demand_pattern']}",
-                f"cap-{meta['capacity']}",
-                f"horizon-{meta['time_horizon']}",
-                f"tw-{meta['time_window_type']}",
-                f"n-{meta['n_customers']}",
-                f"id-{i:03d}"
+                f"{abbreviations[meta['customer_distribution']]}"
+                f"{i:03d}"
             ]
-            instance_name = "_".join(name_parts)
+            instance_name = "".join(name_parts)
             file_path = os.path.join(output_dir, f"{instance_name}.txt")
 
             with open(file_path, "w") as f:
@@ -412,7 +414,77 @@ class InstanceSetMaker():
                     x, y = coord
                     ready_time, due_date = tw
                     f.write(f"{j:>9}   {int(x):>6}   {int(y):>6}   {int(demand):>6}   {int(ready_time):>11}   {int(due_date):>9}   {10:>13}\n")
+    def generate_latex_summary(self, instances, output_path="instance_summary.tex"):
+        from statistics import mean
+        import os
+
+        header = (
+            "\\begin{longtable}{lcccccc}\n"
+            "\\caption{Summary of VRP-TW instances.} \\\\\n"
+            "\\toprule\n"
+            "ID & Dep. & Cust. & $d_i$ & Cap. & r \\\\\n"
+            "\\midrule\n"
+            "\\endfirsthead\n"
+            "\\toprule\n"
+            "ID & Dep. & Cust. & $d_i$ & Cap. & r \\\\\n"
+            "\\midrule\n"
+            "\\endhead\n"
+            "\\bottomrule\n"
+            "\\endfoot\n"
+            "\\bottomrule\n"
+            "\\endlastfoot"
+        )
+        abbreviations = {
+            "random": "R",
+            "clustered": "C",
+            "random_clustered": "RC"
+            
+        }
+        
+        rows = []
+        for i, instance in enumerate(instances):
+            meta = instance["meta"]
+            demands = instance["demands"]
+            
+            name_parts = [
+                f"{abbreviations[meta['customer_distribution']]}"
+                f"{i:03d}"
+            ]
+            name = "".join(name_parts)
+
+            demand_range = meta["demand_pattern"]
+            if len(demand_range.split("_")) > 1:
+                _, min_d, max_d = demand_range.split("_")
+            elif demand_range == "unitary":
+                min_d, max_d = ["1","1"]
+            elif demand_range == "mixture":
+                min_d, max_d = ["1-4]","[5-10"]
+
+            cap = meta["capacity"]
+            avg_demand = mean(demands) if demands else 0
+            ratio = cap / avg_demand if avg_demand else 0
+
+            row = (
+                f"{name} & "
+                f"{meta['depot_positioning']} & "
+                f"{abbreviations[meta['customer_distribution']]} & "
+                f"[{min_d}, {max_d}] & "
+                f"{cap} & "
+                f"{ratio:.1f} \\\\"
+            )
+            rows.append(row)
+
+        footer = "\\bottomrule\n\\end{longtable}"
+
+        latex_code = "\n".join([header] + rows + [footer])
+
+        # Write to file
+        with open(output_path, "w") as f:
+            f.write(latex_code)
+
+        print(f"LaTeX longtable saved to {os.path.abspath(output_path)}")
     
 set_maker = InstanceSetMaker()
-instances = set_maker.generate_all_combinations(samples_per_config=15)
+instances = set_maker.generate_all_combinations(samples_per_config=1)
 set_maker.save_instances_as_txt(instances, "instances/new_outputs/train")
+set_maker.generate_latex_summary(instances)
