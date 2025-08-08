@@ -15,16 +15,16 @@ class DistributionStrategy(ABC):
 
 # Distribution section
 class RandomDistribution(DistributionStrategy):
-    def __init__(self, low_x = 0, low_y = 0, high_x = 100.999, high_y=100.999):
+    def __init__(self, low_x = 0, low_y = 0, high_x = 100, high_y=100):
         self.low_x = low_x
         self.low_y = low_y
         self.high_x = high_x
         self.high_y = high_y
     
     def generate(self) -> Tuple[int,int]:
-        from random import uniform
-        x = int(uniform(self.low_x, self.high_x))
-        y = int(uniform(self.low_y, self.high_y))
+        from random import randint
+        x = randint(self.low_x, self.high_x)
+        y = randint(self.low_y, self.high_y)
         return (x,y)
     
     def generate_batch(self, n: int) -> List[Tuple[int,int]]:
@@ -40,12 +40,12 @@ class ClusteredDistribution(DistributionStrategy):
         self.pseudo_dist_vals = {}
     
     def produce_seeds(self, x_min=0, x_max=100, y_min=0, y_max=100):
-        from random import uniform
+        from random import randint
         
         seeds = []
         for _ in range(self.n_seeds):
-            x = int(uniform(x_min, x_max))
-            y = int(uniform(y_min, y_max))
+            x = randint(x_min, x_max)
+            y = randint(y_min, y_max)
             seeds.append((x,y))
         self.seeds = seeds
     
@@ -200,17 +200,19 @@ class ScenarioSampler:
         customer_distribution: str = "random",  # options: 'random', 'clustered', 'random_clustered'
         n_customers: int = 100,
         demand_pattern: str = "unitary",  # options: 'unitary', 'u_1_10', 'u_5_10', 'u_1_100', 'u_50_100', 'mixture'
-        capacity: int = 25,
+        route_length: int = 8,
         time_horizon: int = 1000,
-        time_window_type: str = "tight"  # options: 'tight', 'large'
+        time_window_type: str = "tight",  # options: 'tight', 'large',
+        arrival_type: str = "not_clustered"
     ):
         self.depot_positioning = depot_positioning
         self.customer_distribution = customer_distribution
         self.n_customers = n_customers
         self.demand_pattern = demand_pattern
-        self.capacity = capacity
+        # self.capacity = capacity
         self.time_horizon = time_horizon
         self.time_window_type = time_window_type
+        self.arrival_type = arrival_type
 
     def build(self) -> Dict[str, Any]:
         from random import randint
@@ -256,20 +258,20 @@ class ScenarioSampler:
         # DEMANDS
         if self.demand_pattern == "unitary":
             demand_dist = FixedCountDistribution([FixedValueDistribution(1)], [self.n_customers])
-        elif self.demand_pattern == "u_1_4":
-            demand_dist = UniformDistribution(1, 4)
-        elif self.demand_pattern == "u_3_4":
-            demand_dist = UniformDistribution(3, 4)
         elif self.demand_pattern == "u_1_10":
             demand_dist = UniformDistribution(1, 10)
         elif self.demand_pattern == "u_5_10":
             demand_dist = UniformDistribution(5, 10)
+        elif self.demand_pattern == "u_1_100":
+            demand_dist = UniformDistribution(1, 100)
+        elif self.demand_pattern == "u_50_100":
+            demand_dist = UniformDistribution(50, 100)
         elif self.demand_pattern == "mixture":
             factor = randint(70,95)
             n1 = int(factor/100 * self.n_customers)
             n2 = self.n_customers - n1
-            low = UniformDistribution(1, 4)
-            high = UniformDistribution(5, 10)
+            low = UniformDistribution(1, 10)
+            high = UniformDistribution(50, 100)
             demand_dist = FixedCountDistribution(
                 [low, high],
                 [n1, n2]
@@ -290,14 +292,33 @@ class ScenarioSampler:
         else:
             raise ValueError(f"Unknown time window type: {self.time_window_type}")
 
-        earliest_arrival_dist = UniformDistribution(0, self.time_horizon)
-
-        time_windows = []
-        for _ in range(self.n_customers):
-            start = earliest_arrival_dist.generate()
-            length = window_length_dist.generate()
-            end = min(start + length, self.time_horizon)
-            time_windows.append((int(start), int(end)))
+        if self.arrival_type == "not_clustered":
+            time_windows = []
+            for _ in range(self.n_customers):
+                length = window_length_dist.generate()
+                earliest_arrival_dist = UniformDistribution(0, self.time_horizon - 141)
+                start = earliest_arrival_dist.generate()
+                end = min(start + length, self.time_horizon)
+                time_windows.append((int(start), int(end)))
+        else:
+            time_windows = []
+            length_batch = window_length_dist.generate_batch(n=100)
+            length = max(length_batch)
+            n1 = int(35/100 * self.n_customers)
+            n2 = int(35/100 * self.n_customers)
+            n3 = self.n_customers - n1 - n2
+            w1 = UniformDistribution(150, 350)
+            w2 = UniformDistribution(650, min(850, self.time_horizon - 141))
+            w3 = UniformDistribution(0, self.time_horizon - 141)
+            earliest_arrival_dist = FixedCountDistribution(
+                [w1, w2, w3],
+                [n1, n2, n3]
+            )
+            start = earliest_arrival_dist.generate_batch()
+            end = []
+            for i in range(self.n_customers):
+                end.append(min(start[i] + length_batch[i], self.time_horizon))
+                time_windows.append((int(start[i]), int(end[i])))
 
         # build instance
         instance = builder.generate_batch()
@@ -306,7 +327,7 @@ class ScenarioSampler:
             "depot": instance["depot"][0],
             "customers": instance["customers"],
             "demands": instance["demands"],
-            "capacity": self.capacity,
+            # "capacity": self.capacity,
             "time_horizon": self.time_horizon,
             "time_windows": time_windows,
         }
@@ -315,24 +336,26 @@ class InstanceSetMaker():
     def __init__(self):
         self.DEPOT_POSITIONS = ["random", "center", "corner"]
         self.CUSTOMER_DISTRIBUTIONS = ["random", "clustered", "random_clustered"]
-        self.DEMAND_PATTERNS = ["unitary", "u_1_4", "u_3_4", "u_1_10", "u_5_10", "mixture"]
-        self.CAPACITIES = [10, 25, 50]
+        self.DEMAND_PATTERNS = ["unitary", "u_1_10", "u_5_10", "u_1_100", "u_50_100", "mixture"]
+        self.ROUTE_LENGTHS = [8, 16, 24]
         self.TIME_HORIZONS = [1000, 2000]
         self.TIME_WINDOW_TYPES = ["tight", "large"]
         self.N_CUSTOMERS = [100]
+        self.ARRIVAL_TYPE = ["not_clustered", "clustered"]
     
     def generate_all_combinations(self, samples_per_config: int = 1) -> List[Dict[str, Any]]:
         from itertools import product
-        from typing import List
         from tqdm import tqdm
+        from math import ceil
         combinations = list(product(
             self.DEPOT_POSITIONS,
             self.CUSTOMER_DISTRIBUTIONS,
             self.DEMAND_PATTERNS,
-            self.CAPACITIES,
+            self.ROUTE_LENGTHS,
             self.TIME_HORIZONS,
             self.TIME_WINDOW_TYPES,
-            self.N_CUSTOMERS
+            self.N_CUSTOMERS,
+            self.ARRIVAL_TYPE
         ))
         total_iterations = len(combinations) * samples_per_config
         all_instances = []
@@ -341,19 +364,21 @@ class InstanceSetMaker():
                 depot_position,
                 customer_dist,
                 demand_pattern,
-                capacity,
+                route_length,
                 horizon,
                 time_window_type,
-                n_customers
+                n_customers,
+                arrival_type
             ) in combinations:
                 sampler = ScenarioSampler(
                     depot_positioning=depot_position,
                     customer_distribution=customer_dist,
                     demand_pattern=demand_pattern,
-                    capacity=capacity,
+                    route_length=route_length,
                     time_horizon=horizon,
                     time_window_type=time_window_type,
-                    n_customers=n_customers
+                    n_customers=n_customers,
+                    arrival_type= arrival_type
                 )
                 for _ in range(samples_per_config):
                     instance = sampler.build()
@@ -361,10 +386,12 @@ class InstanceSetMaker():
                         "depot_positioning": depot_position,
                         "customer_distribution": customer_dist,
                         "demand_pattern": demand_pattern,
-                        "capacity": capacity,
+                        "route_length": route_length,
                         "time_horizon": horizon,
                         "time_window_type": time_window_type,
-                        "n_customers": n_customers
+                        "n_customers": n_customers,
+                        "capacity": ceil(route_length*sum(instance["demands"])/100),
+                        "arrival_type": arrival_type
                     }
                     all_instances.append(instance)
                     pbar.update(1)
@@ -413,20 +440,20 @@ class InstanceSetMaker():
                 for j, (coord, demand, tw) in enumerate(zip(instance["customers"], instance["demands"], instance["time_windows"]), start=1):
                     x, y = coord
                     ready_time, due_date = tw
-                    f.write(f"{j:>9}   {int(x):>6}   {int(y):>6}   {int(demand):>6}   {int(ready_time):>11}   {int(due_date):>9}   {10:>13}\n")
+                    f.write(f"{j:>9}   {int(x):>6}   {int(y):>6}   {int(demand):>6}   {int(ready_time):>11}   {int(due_date):>9}   {5:>13}\n")
     def generate_latex_summary(self, instances, output_path="instance_summary.tex"):
-        from statistics import mean
+        # from statistics import mean
         import os
 
         header = (
-            "\\begin{longtable}{lcccccc}\n"
+            "\\begin{longtable}{lccccccccc}\n"
             "\\caption{Summary of VRP-TW instances.} \\\\\n"
             "\\toprule\n"
-            "ID & Dep. & Cust. & $d_i$ & Cap. & r \\\\\n"
+            "ID & Dep. & Cust. & $d_i$ & Cap. & r & $\hat{"+"r}$ & TH & TW & Ty \\\\\n"
             "\\midrule\n"
             "\\endfirsthead\n"
             "\\toprule\n"
-            "ID & Dep. & Cust. & $d_i$ & Cap. & r \\\\\n"
+            "ID & Dep. & Cust. & $d_i$ & Cap. & r & $\hat{"+"r}$ & TH & TW & Ty \\\\\n"
             "\\midrule\n"
             "\\endhead\n"
             "\\bottomrule\n"
@@ -437,7 +464,12 @@ class InstanceSetMaker():
         abbreviations = {
             "random": "R",
             "clustered": "C",
-            "random_clustered": "RC"
+            "random_clustered": "RC",
+            "center": "Ce",
+            "corner": "Co",
+            "tight": "S",
+            "large": "L",
+            "not_clustered": "NC"
             
         }
         
@@ -458,19 +490,24 @@ class InstanceSetMaker():
             elif demand_range == "unitary":
                 min_d, max_d = ["1","1"]
             elif demand_range == "mixture":
-                min_d, max_d = ["1-4]","[5-10"]
+                min_d, max_d = ["1","100*"]
 
             cap = meta["capacity"]
-            avg_demand = mean(demands) if demands else 0
+            avg_demand = sum(demands) if demands else 0
             ratio = cap / avg_demand if avg_demand else 0
+            r = meta["route_length"]
 
             row = (
                 f"{name} & "
-                f"{meta['depot_positioning']} & "
+                f"{abbreviations[meta['depot_positioning']]} & "
                 f"{abbreviations[meta['customer_distribution']]} & "
                 f"[{min_d}, {max_d}] & "
                 f"{cap} & "
-                f"{ratio:.1f} \\\\"
+                f"{r} & "
+                f"{ratio*100:.1f} & "
+                f"{meta['time_horizon']} & "
+                f"{abbreviations[meta['time_window_type']]} & "
+                f"{abbreviations[meta['arrival_type']]} \\\\"
             )
             rows.append(row)
 
